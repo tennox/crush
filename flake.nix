@@ -2,7 +2,8 @@
   # docs: https://devenv.sh/guides/using-with-flakes/#the-flakenix-file
 
   inputs = {
-    nixpkgs.url = "github:cachix/devenv-nixpkgs/rolling"; # (i) https://devenv.sh/blog/2024/03/20/devenv-10-rewrite-in-rust/#testing-infrastructure
+    # nixpkgs.url = "github:cachix/devenv-nixpkgs/rolling"; # (i) https://devenv.sh/blog/2024/03/20/devenv-10-rewrite-in-rust/#testing-infrastructure
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
     devenv.url = "github:cachix/devenv";
     flake-parts.url = "github:hercules-ci/flake-parts";
