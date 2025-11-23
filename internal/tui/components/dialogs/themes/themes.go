@@ -1,10 +1,10 @@
 package themes
 
 import (
-	"github.com/charmbracelet/bubbles/v2/help"
-	"github.com/charmbracelet/bubbles/v2/key"
-	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/charmbracelet/crush/internal/tui/components/core"
 	"github.com/charmbracelet/crush/internal/tui/components/dialogs"
@@ -96,7 +96,7 @@ func (t *themeDialogCmp) Init() tea.Cmd {
 	return t.themeList.SetItems(themeItems)
 }
 
-func (t *themeDialogCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (t *themeDialogCmp) Update(msg tea.Msg) (util.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		t.wWidth = msg.Width

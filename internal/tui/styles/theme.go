@@ -521,9 +521,8 @@ func NewManager() *Manager {
 
 	m.Register(NewCharmtoneTheme())
 	m.Register(NewCatppuccinLatteTheme())
-	m.Register(NewCrushTheme())
 
-	m.current = m.themes[NewCrushTheme().Name]
+	m.current = m.themes[NewCharmtoneTheme().Name]
 
 	return m
 }
