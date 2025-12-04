@@ -51,3 +51,7 @@ manpages/
 completions/
 !internal/tui/components/completions/
 .prettierignore
+
+# Local dev dependencies for Ollama Cloud testing
+/fantasy/
+/catwalk/
