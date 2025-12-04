@@ -502,26 +502,27 @@ func SetDefaultManager(m *Manager) {
 
 func DefaultManager() *Manager {
 	if defaultManager == nil {
-		defaultManager = NewManager()
+		defaultManager = NewManager("crush")
 	}
 	return defaultManager
 }
 
 func CurrentTheme() *Theme {
 	if defaultManager == nil {
-		defaultManager = NewManager()
+		defaultManager = NewManager("crush")
 	}
 	return defaultManager.Current()
 }
 
-func NewManager() *Manager {
+func NewManager(defaultTheme string) *Manager {
 	m := &Manager{
 		themes: make(map[string]*Theme),
 	}
 
-	t := NewCharmtoneTheme() // default theme
-	m.Register(t)
-	m.current = m.themes[t.Name]
+	m.Register(NewCrushTheme())
+	m.Register(NewCatppuccinLatteTheme())
+
+	m.current = m.themes[defaultTheme]
 
 	return m
 }
