@@ -3,7 +3,7 @@ package themes
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea/v2"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/crush/internal/tui/styles"
 )
 
