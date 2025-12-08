@@ -33,6 +33,8 @@ import (
 	"github.com/charmbracelet/crush/internal/term"
 	"github.com/charmbracelet/crush/internal/tui/components/anim"
 	"github.com/charmbracelet/crush/internal/tui/styles"
+	"github.com/charmbracelet/crush/internal/update"
+	"github.com/charmbracelet/crush/internal/version"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/exp/charmtone"
 )
@@ -91,6 +93,9 @@ func New(ctx context.Context, conn *sql.DB, cfg *config.Config) (*App, error) {
 
 	// Initialize LSP clients in the background.
 	app.initLSPClients(ctx)
+
+	// Check for updates in the background.
+	go app.checkForUpdates(ctx)
 
 	go func() {
 		slog.Info("Initializing MCP clients")
@@ -255,6 +260,9 @@ func (app *App) RunNonInteractive(ctx context.Context, output io.Writer, prompt 
 }
 
 func (app *App) UpdateAgentModel(ctx context.Context) error {
+	if app.AgentCoordinator == nil {
+		return fmt.Errorf("agent configuration is missing")
+	}
 	return app.AgentCoordinator.UpdateModels(ctx)
 }
 
@@ -365,28 +373,56 @@ func (app *App) Subscribe(program *tea.Program) {
 
 // Shutdown performs a graceful shutdown of the application.
 func (app *App) Shutdown() {
+	start := time.Now()
+	defer func() { slog.Info("Shutdown took " + time.Since(start).String()) }()
+	var wg sync.WaitGroup
 	if app.AgentCoordinator != nil {
-		app.AgentCoordinator.CancelAll()
+		wg.Go(func() {
+			app.AgentCoordinator.CancelAll()
+		})
 	}
 
 	// Kill all background shells.
-	shell.GetBackgroundShellManager().KillAll()
+	wg.Go(func() {
+		shell.GetBackgroundShellManager().KillAll()
+	})
 
 	// Shutdown all LSP clients.
 	for name, client := range app.LSPClients.Seq2() {
-		shutdownCtx, cancel := context.WithTimeout(app.globalCtx, 5*time.Second)
-		if err := client.Close(shutdownCtx); err != nil {
-			slog.Error("Failed to shutdown LSP client", "name", name, "error", err)
-		}
-		cancel()
+		wg.Go(func() {
+			shutdownCtx, cancel := context.WithTimeout(app.globalCtx, 5*time.Second)
+			defer cancel()
+			if err := client.Close(shutdownCtx); err != nil {
+				slog.Error("Failed to shutdown LSP client", "name", name, "error", err)
+			}
+		})
 	}
 
 	// Call call cleanup functions.
 	for _, cleanup := range app.cleanupFuncs {
 		if cleanup != nil {
-			if err := cleanup(); err != nil {
-				slog.Error("Failed to cleanup app properly on shutdown", "error", err)
-			}
+			wg.Go(func() {
+				if err := cleanup(); err != nil {
+					slog.Error("Failed to cleanup app properly on shutdown", "error", err)
+				}
+			})
 		}
+	}
+	wg.Wait()
+}
+
+// checkForUpdates checks for available updates.
+func (app *App) checkForUpdates(ctx context.Context) {
+	checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	info, err := update.Check(checkCtx, version.Version, update.Default)
+	if err != nil || !info.Available() {
+		return
+	}
+	app.events <- pubsub.UpdateAvailableMsg{
+		CurrentVersion: info.Current,
+		LatestVersion:  info.Latest,
+		IsDevelopment:  info.IsDevelopment(),
 	}
 }

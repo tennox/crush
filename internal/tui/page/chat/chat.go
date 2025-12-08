@@ -29,6 +29,7 @@ import (
 	"github.com/charmbracelet/crush/internal/tui/components/core"
 	"github.com/charmbracelet/crush/internal/tui/components/core/layout"
 	"github.com/charmbracelet/crush/internal/tui/components/dialogs"
+	"github.com/charmbracelet/crush/internal/tui/components/dialogs/claude"
 	"github.com/charmbracelet/crush/internal/tui/components/dialogs/commands"
 	"github.com/charmbracelet/crush/internal/tui/components/dialogs/filepicker"
 	"github.com/charmbracelet/crush/internal/tui/components/dialogs/models"
@@ -180,7 +181,7 @@ func (p *chatPage) Update(msg tea.Msg) (util.Model, tea.Cmd) {
 		}
 		return p, nil
 	case tea.MouseClickMsg:
-		if p.isOnboarding {
+		if p.isOnboarding || p.isProjectInit {
 			return p, nil
 		}
 		if p.compact {
@@ -209,7 +210,7 @@ func (p *chatPage) Update(msg tea.Msg) (util.Model, tea.Cmd) {
 		}
 		return p, nil
 	case tea.MouseReleaseMsg:
-		if p.isOnboarding {
+		if p.isOnboarding || p.isProjectInit {
 			return p, nil
 		}
 		if p.compact {
@@ -293,6 +294,13 @@ func (p *chatPage) Update(msg tea.Msg) (util.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 		return p, tea.Batch(cmds...)
 
+	case claude.ValidationCompletedMsg, claude.AuthenticationCompleteMsg:
+		if p.focusedPane == PanelTypeSplash {
+			u, cmd := p.splash.Update(msg)
+			p.splash = u.(splash.Splash)
+			cmds = append(cmds, cmd)
+		}
+		return p, tea.Batch(cmds...)
 	case models.APIKeyStateChangeMsg:
 		if p.focusedPane == PanelTypeSplash {
 			u, cmd := p.splash.Update(msg)
@@ -371,8 +379,17 @@ func (p *chatPage) Update(msg tea.Msg) (util.Model, tea.Cmd) {
 			}
 			return p, p.newSession()
 		case key.Matches(msg, p.keyMap.AddAttachment):
+			// Skip attachment handling during onboarding/splash screen
+			if p.focusedPane == PanelTypeSplash || p.isOnboarding {
+				u, cmd := p.splash.Update(msg)
+				p.splash = u.(splash.Splash)
+				return p, cmd
+			}
 			agentCfg := config.Get().Agents[config.AgentCoder]
 			model := config.Get().GetModelByType(agentCfg.Model)
+			if model == nil {
+				return p, util.ReportWarn("No model configured yet")
+			}
 			if model.SupportsImages {
 				return p, util.CmdHandler(commands.OpenFilePickerMsg{})
 			} else {
@@ -816,6 +833,71 @@ func (p *chatPage) Help() help.KeyMap {
 	var shortList []key.Binding
 	var fullList [][]key.Binding
 	switch {
+	case p.isOnboarding && p.splash.IsShowingClaudeAuthMethodChooser():
+		shortList = append(shortList,
+			// Choose auth method
+			key.NewBinding(
+				key.WithKeys("left", "right", "tab"),
+				key.WithHelp("←→/tab", "choose"),
+			),
+			// Accept selection
+			key.NewBinding(
+				key.WithKeys("enter"),
+				key.WithHelp("enter", "accept"),
+			),
+			// Go back
+			key.NewBinding(
+				key.WithKeys("esc", "alt+esc"),
+				key.WithHelp("esc", "back"),
+			),
+			// Quit
+			key.NewBinding(
+				key.WithKeys("ctrl+c"),
+				key.WithHelp("ctrl+c", "quit"),
+			),
+		)
+		// keep them the same
+		for _, v := range shortList {
+			fullList = append(fullList, []key.Binding{v})
+		}
+	case p.isOnboarding && p.splash.IsShowingClaudeOAuth2():
+		if p.splash.IsClaudeOAuthURLState() {
+			shortList = append(shortList,
+				key.NewBinding(
+					key.WithKeys("enter"),
+					key.WithHelp("enter", "open"),
+				),
+				key.NewBinding(
+					key.WithKeys("c"),
+					key.WithHelp("c", "copy url"),
+				),
+			)
+		} else if p.splash.IsClaudeOAuthComplete() {
+			shortList = append(shortList,
+				key.NewBinding(
+					key.WithKeys("enter"),
+					key.WithHelp("enter", "continue"),
+				),
+			)
+		} else {
+			shortList = append(shortList,
+				key.NewBinding(
+					key.WithKeys("enter"),
+					key.WithHelp("enter", "submit"),
+				),
+			)
+		}
+		shortList = append(shortList,
+			// Quit
+			key.NewBinding(
+				key.WithKeys("ctrl+c"),
+				key.WithHelp("ctrl+c", "quit"),
+			),
+		)
+		// keep them the same
+		for _, v := range shortList {
+			fullList = append(fullList, []key.Binding{v})
+		}
 	case p.isOnboarding && !p.splash.IsShowingAPIKey():
 		shortList = append(shortList,
 			// Choose model

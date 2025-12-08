@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -55,7 +54,7 @@ type editorCmp struct {
 	x, y               int
 	app                *app.App
 	session            session.Session
-	textarea           *textarea.Model
+	textarea           textarea.Model
 	attachments        []message.Attachment
 	deleteMode         bool
 	readyPlaceholder   string
@@ -112,11 +111,8 @@ func (m *editorCmp) openEditor(value string) tea.Cmd {
 	if _, err := tmpfile.WriteString(value); err != nil {
 		return util.ReportError(err)
 	}
-	c := exec.CommandContext(context.TODO(), editor, tmpfile.Name())
-	c.Stdin = os.Stdin
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	return tea.ExecProcess(c, func(err error) tea.Msg {
+	cmdStr := editor + " " + tmpfile.Name()
+	return util.ExecShell(context.TODO(), cmdStr, func(err error) tea.Msg {
 		if err != nil {
 			return util.ReportError(err)
 		}
